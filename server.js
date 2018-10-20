@@ -36,7 +36,10 @@ app.get("/api/randomizeattendance", (req,res) => {
       client = await MongoClient.connect(url, {useNewUrlParser: true});
       const db = client.db(dbName);
       const result = await db.collection('users').find({}).forEach((doc) => {
-        db.collection('users').updateOne({_id: doc._id}, {$set: {Anwesend: getRandomInt(6)}});
+        db.collection('users').updateOne({_id: doc._id}, {$set: {
+          Anwesend: getRandomInt(6),
+          "E-Mail-Adresse": doc["E-Mail-Adresse"].replace("COMPUTACENTER.COM", "computacenter.com")
+        }});
       });
       res.json(result);
     } catch (err) {
@@ -56,21 +59,40 @@ app.get("/api/generatepairings", (req,res) => {
     try {
       client = await MongoClient.connect(url, {useNewUrlParser: true});
       const db = client.db(dbName);
-      const attendees = await db.collection('users').find({Anwesend: 1}).toArray;
-      let possiblePairs = getPairs(attendees);
-      console.log("possible pairs:",possiblePairs);
+      const attendees = await db.collection('users').find({Anwesend: 1}).toArray();
+      // console.log("attendees:",attendees);
+      const possiblePairs = getPairs(attendees);
+      // console.log("possible pairs:",possiblePairs);
       let pairings = {}
-      for (j=0; j++; j<attendees.length) {
-        const pairsWithAttendee = Object.keys(possiblePairs).filter(function(key) {
-          return key.indexOf(attendees[j]) !== -1
-        });
-        for (i=0; i++; i<rounds) {
+      for (var j=0; j<attendees.length; j++) {
+        pairings[attendees[j]["E-Mail-Adresse"]] = [];
+      }
+      for (var i=0; i<rounds; i++) {
+        var pairsThisRound = Object.assign({}, possiblePairs);
+        // console.log("Begin round "+i, pairsThisRound);
+        for (var j=0; j<attendees.length; j++) {
+          let pairsWithAttendee = Object.keys(pairsThisRound).filter(function(key) {
+            return key.indexOf(attendees[j]["E-Mail-Adresse"]) !== -1
+          });
+          if (pairsWithAttendee.length === 0) {continue;};
+          // console.log("Possible pairs for "+attendees[j]["E-Mail-Adresse"]+" in round "+i+": ", pairsThisRound);
           const pick = getRandomInt(pairsWithAttendee.length);
-          const partner = await db.collection('users').findOne({"E-Mail-Adresse": pairsWithAttendee[pick].replace(attendees[j], '')})._id;
-          pairings[attendees[j]][i] = partner;
+          // console.log("Pick ", pick, "from", pairsWithAttendee.length);
+          const partner = await db.collection('users').findOne({"E-Mail-Adresse": pairsWithAttendee[pick].replace(attendees[j]["E-Mail-Adresse"], '')});
+          // console.log("round " + i + ": " + attendees[j]["Vorname"] + " " + attendees[j]["Nachname"] + " + " + partner["Vorname"] + " " + partner["Nachname"]);
+          pairings[attendees[j]["E-Mail-Adresse"]].push(partner["E-Mail-Adresse"]);
+          pairings[partner["E-Mail-Adresse"]].push(attendees[j]["E-Mail-Adresse"]);
+          // console.log("deleting ", pairsWithAttendee[pick], Object.keys(possiblePairs).length);
           delete possiblePairs[pairsWithAttendee[pick]];
+          Object.keys(pairsThisRound).forEach((key) => {
+            if (key.indexOf(attendees[j]["E-Mail-Adresse"]) !== -1 || key.indexOf(partner["E-Mail-Adresse"]) !== -1) {
+              delete pairsThisRound[key];
+              // console.log("possiblePairs:", Object.keys(pairsThisRound).length, Object.keys(possiblePairs).length);
+            }
+          });
         }
       }
+      console.log(pairings);
       res.json(pairings);
     } catch (err) {
       console.log(err.stack);
@@ -91,11 +113,11 @@ function getRandomInt(max) {
 }
 
 function getPairs(list) {
-  pairings = {};
-  for (var i=0; i++; i<list.length) {
-    for (var j=0; j++; j<list.length) {
+  var pairings = {};
+  for (var i=0; i<list.length; i++) {
+    for (var j=0; j<list.length; j++) {
       if (i !== j) {
-        pairings[combineSorted([list[i]["E-Mail-Adresse"], list[j]["E-Mail-Adresse"]])] = 1;
+        pairings[combineSorted(list[i]["E-Mail-Adresse"], list[j]["E-Mail-Adresse"])] = 1;
       }
     }
   }
