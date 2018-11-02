@@ -74,11 +74,19 @@ input[type="text"] {
 .pairingsTable th {
   padding: 6px;
   margin: 0px;
-  border: 1px solid rgb(167, 167, 179);
+  border: 3px solid rgb(110, 110, 114);
 }
 
 .pairingsTable td {
   padding: 6px;
   margin: 0px;
-  border: 1px solid rgb(167, 167, 179);
+  border: 3px solid rgb(110, 110, 114);
+  color: rgb(110, 110, 114);
+}
+
+.pairingsTable tbody tr:hover td {
+  padding: 6px;
+  margin: 0px;
+  border: 3px solid yellow;
+  color: white;
 }
